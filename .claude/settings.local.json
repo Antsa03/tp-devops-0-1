@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(docker rm -f jenkins-tp1)",
+      "PowerShell(docker compose -f \"d:\\\\Neo coders\\\\tp0-docker\\\\docker-compose.yml\" up -d)"
+    ]
+  }
+}

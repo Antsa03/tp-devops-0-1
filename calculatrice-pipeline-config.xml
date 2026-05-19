@@ -1,0 +1,122 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job">
+  <description>TP4 - Pipeline CI : compilation, tests, couverture, packaging</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class="hudson.tasks.LogRotator">
+        <daysToKeep>-1</daysToKeep>
+        <numToKeep>10</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>plateforme</name>
+          <defaultValue>Linux</defaultValue>
+          <description>Plateforme cible</description>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.ChoiceParameterDefinition>
+          <name>choix</name>
+          <choices>Linux
+Windows
+Mac</choices>
+          <description>Choix de plateforme</description>
+        </hudson.model.ChoiceParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps">
+    <script><![CDATA[
+pipeline {
+    agent any
+    tools {
+        jdk   'JDK-17'
+        maven 'Maven-3'
+    }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timestamps()
+        timeout(time: 15, unit: 'MINUTES')
+    }
+    parameters {
+        string(name: 'plateforme', defaultValue: 'Linux', description: 'Plateforme cible')
+        choice(name: 'choix', choices: ['Linux', 'Windows', 'Mac'], description: 'Choix de plateforme')
+    }
+    stages {
+        stage('Compilation') {
+            steps {
+                echo "Plateforme : ${params.plateforme} | Choix : ${params.choix}"
+                echo 'Compilation du projet Maven...'
+                sh 'mvn clean compile -B -f /opt/calculatrice/pom.xml'
+            }
+        }
+        stage('Tests Unitaires') {
+            steps {
+                echo 'Execution des tests unitaires...'
+                sh 'mvn test -B -f /opt/calculatrice/pom.xml'
+            }
+            post {
+                always {
+                    sh 'cp -r /opt/calculatrice/target/surefire-reports .'
+                    junit 'surefire-reports/*.xml'
+                }
+            }
+        }
+        stage('Couverture JaCoCo') {
+            steps {
+                echo 'Generation du rapport de couverture...'
+                sh 'mvn jacoco:report -B -f /opt/calculatrice/pom.xml'
+            }
+            post {
+                always {
+                    publishHTML(target: [
+                        allowMissing         : false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll              : true,
+                        reportDir            : '/opt/calculatrice/target/site/jacoco',
+                        reportFiles          : 'index.html',
+                        reportName           : 'Rapport JaCoCo'
+                    ])
+                }
+            }
+        }
+        stage('Package') {
+            steps {
+                echo 'Creation du JAR...'
+                sh 'mvn package -DskipTests -B -f /opt/calculatrice/pom.xml'
+                sh 'cp /opt/calculatrice/target/*.jar .'
+                archiveArtifacts artifacts: '*.jar', fingerprint: true
+            }
+        }
+    }
+    post {
+        success { echo 'Build reussi !' }
+        unstable {
+            echo 'Build instable !'
+            mail(
+                to: 'admin@jenkins.local',
+                subject: '[Jenkins] Build INSTABLE : ' + env.JOB_NAME + ' #' + env.BUILD_NUMBER,
+                body: 'Voir : ' + env.BUILD_URL
+            )
+        }
+        failure {
+            echo 'Build en echec !'
+            mail(
+                to: 'admin@jenkins.local',
+                subject: '[Jenkins] Build ECHEC : ' + env.JOB_NAME + ' #' + env.BUILD_NUMBER,
+                body: 'Voir : ' + env.BUILD_URL
+            )
+        }
+        always { cleanWs() }
+    }
+}
+]]></script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

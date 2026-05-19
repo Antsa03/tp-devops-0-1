@@ -1,0 +1,225 @@
+jenkins:
+  systemMessage: "Jenkins CI/CD - ENI Master 2 2026 | TP1→TP4"
+  numExecutors: 2
+
+  # ── Authentification ────────────────────────────────────────────────────────
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "admin123"
+          properties:
+            - mailer:
+                emailAddress: "admin@jenkins.local"
+        - id: "developer"
+          password: "developer123"
+          properties:
+            - mailer:
+                emailAddress: "developer@jenkins.local"
+        - id: "developer1"
+          password: "developer123"
+          properties:
+            - mailer:
+                emailAddress: "developer1@jenkins.local"
+        - id: "tester"
+          password: "tester123"
+          properties:
+            - mailer:
+                emailAddress: "tester@jenkins.local"
+
+  # ── Stratégie basée sur les rôles (TP3) ─────────────────────────────────────
+  authorizationStrategy:
+    roleBased:
+      roles:
+        # Rôles globaux
+        global:
+          - name: "admin"
+            description: "Administrateur Jenkins"
+            permissions:
+              - "Overall/Administer"
+            entries:
+              - user: "admin"
+          - name: "employe"
+            description: "Employé - accès lecture globale"
+            permissions:
+              - "Overall/Read"
+            entries:
+              - user: "developer"
+              - user: "developer1"
+              - user: "tester"
+        # Rôles par item (projets) — patron regex
+        items:
+          - name: "java-developer"
+            description: "Développeur Java — projets Java.*"
+            pattern: "Java.*"
+            permissions:
+              - "hudson.model.Item.Build"
+              - "hudson.model.Item.Cancel"
+              - "hudson.model.Item.Configure"
+              - "hudson.model.Item.Create"
+              - "hudson.model.Item.Delete"
+              - "hudson.model.Item.Discover"
+              - "hudson.model.Item.Move"
+              - "hudson.model.Item.Read"
+              - "hudson.model.Item.Workspace"
+              - "hudson.model.Run.Delete"
+              - "hudson.model.Run.Replay"
+              - "hudson.model.Run.Update"
+            entries:
+              - user: "developer"
+              - user: "developer1"
+          - name: "tester"
+            description: "Testeur — projets Test.*"
+            pattern: "Test.*"
+            permissions:
+              - "hudson.model.Item.Build"
+              - "hudson.model.Item.Cancel"
+              - "hudson.model.Item.Configure"
+              - "hudson.model.Item.Create"
+              - "hudson.model.Item.Delete"
+              - "hudson.model.Item.Discover"
+              - "hudson.model.Item.Move"
+              - "hudson.model.Item.Read"
+              - "hudson.model.Item.Workspace"
+              - "hudson.model.Run.Delete"
+              - "hudson.model.Run.Replay"
+              - "hudson.model.Run.Update"
+            entries:
+              - user: "tester"
+
+  # ── Variables d'environnement globales ──────────────────────────────────────
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: "MAVEN_HOME"
+            value: "/usr/share/maven"
+          - key: "JAVA_HOME"
+            value: "/opt/java/openjdk"
+
+# ── Outils (JDK + Maven) ────────────────────────────────────────────────────
+tool:
+  jdk:
+    installations:
+      - name: "JDK-17"
+        home: "/opt/java/openjdk"
+  maven:
+    installations:
+      - name: "Maven-3"
+        home: "/usr/share/maven"
+
+# ── Configuration email ─────────────────────────────────────────────────────
+unclassified:
+  mailer:
+    smtpHost: "smtp.gmail.com"
+    smtpPort: "465"
+    useSsl: true
+    charset: "UTF-8"
+    defaultSuffix: "@gmail.com"
+  location:
+    url: "http://localhost:8080/"
+    adminAddress: "admin@jenkins.local"
+
+# ── Jobs auto-créés via Job DSL ──────────────────────────────────────────────
+jobs:
+  # ── TP1 : Job freestyle HelloWorld ────────────────────────────────────────
+  - script: |
+      freeStyleJob('HelloWorld') {
+        description('TP1 — Premier job Jenkins : compile et exécute HelloWorld.java')
+        logRotator(-1, 10)
+        // TP2 : déclenchement à distance avec token
+        configure { project ->
+          project / 'authToken'('1010')
+        }
+        steps {
+          shell('''
+            echo "=== Compilation HelloWorld.java ==="
+            javac /opt/HelloWorld/HelloWorld.java -d /tmp/helloworld
+            echo "=== Exécution HelloWorld ==="
+            java -cp /tmp/helloworld HelloWorld
+          ''')
+        }
+      }
+
+  # ── TP4 : Job Pipeline Calculatrice ───────────────────────────────────────
+  - script: |
+      pipelineJob('Calculatrice-Pipeline') {
+        description('TP4 — Pipeline CI : compilation, tests, couverture, packaging')
+        logRotator(-1, 10)
+        definition {
+          cps {
+            sandbox(true)
+            script('''
+              pipeline {
+                  agent any
+                  tools {
+                      jdk   "JDK-17"
+                      maven "Maven-3"
+                  }
+                  options {
+                      buildDiscarder(logRotator(numToKeepStr: "10"))
+                      timestamps()
+                      timeout(time: 15, unit: "MINUTES")
+                  }
+                  stages {
+                      stage("Compilation") {
+                          steps {
+                              echo "Compilation du projet Maven..."
+                              sh "mvn clean compile -B -f /opt/calculatrice/pom.xml"
+                          }
+                      }
+                      stage("Tests Unitaires") {
+                          steps {
+                              echo "Exécution des tests unitaires..."
+                              sh "mvn test -B -f /opt/calculatrice/pom.xml"
+                          }
+                          post {
+                              always {
+                                  junit "/opt/calculatrice/target/surefire-reports/*.xml"
+                              }
+                          }
+                      }
+                      stage("Couverture JaCoCo") {
+                          steps {
+                              echo "Génération du rapport de couverture..."
+                              sh "mvn jacoco:report -B -f /opt/calculatrice/pom.xml"
+                          }
+                          post {
+                              always {
+                                  publishHTML(target: [
+                                      allowMissing         : false,
+                                      alwaysLinkToLastBuild: true,
+                                      keepAll              : true,
+                                      reportDir            : "/opt/calculatrice/target/site/jacoco",
+                                      reportFiles          : "index.html",
+                                      reportName           : "Rapport JaCoCo"
+                                  ])
+                              }
+                          }
+                      }
+                      stage("Package") {
+                          steps {
+                              echo "Création du JAR..."
+                              sh "mvn package -DskipTests -B -f /opt/calculatrice/pom.xml"
+                              sh "cp /opt/calculatrice/target/*.jar ."
+                              archiveArtifacts artifacts: "*.jar", fingerprint: true
+                          }
+                      }
+                  }
+                  post {
+                      success { echo "Build réussi !" }
+                      failure {
+                          echo "Build en échec !"
+                          mail(
+                              to:      "admin@jenkins.local",
+                              subject: "[Jenkins] ECHEC : " + env.JOB_NAME + " #" + env.BUILD_NUMBER,
+                              body:    "Voir : " + env.BUILD_URL
+                          )
+                      }
+                      always { cleanWs() }
+                  }
+              }
+            ''')
+          }
+        }
+      }
