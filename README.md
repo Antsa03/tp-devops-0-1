@@ -32,18 +32,19 @@ docker-compose up --build -d
 ```
 
 > La première build prend ~5 min (téléchargement plugins). Suivre avec :
+>
 > ```bash
 > docker logs -f jenkins-tp
 > ```
 
 Ouvrir **http://localhost:8080**
 
-| Utilisateur  | Mot de passe   | Rôle              |
-|--------------|----------------|-------------------|
-| `admin`      | `admin123`     | Administrateur    |
+| Utilisateur  | Mot de passe   | Rôle                     |
+| ------------ | -------------- | ------------------------ |
+| `admin`      | `admin123`     | Administrateur           |
 | `developer`  | `developer123` | Employé / java-developer |
 | `developer1` | `developer123` | Employé / java-developer |
-| `tester`     | `tester123`    | Employé / tester  |
+| `tester`     | `tester123`    | Employé / tester         |
 
 ---
 
@@ -52,11 +53,12 @@ Ouvrir **http://localhost:8080**
 Job **`HelloWorld`** créé automatiquement au démarrage.
 
 **Ce qu'il fait :**
+
 1. Compile `/opt/HelloWorld/HelloWorld.java`
 2. Exécute la classe et affiche `Hello, World` dans la console
 
 **Lancer manuellement :**
-Jenkins → `HelloWorld` → *Lancer un build*
+Jenkins → `HelloWorld` → _Lancer un build_
 
 ---
 
@@ -84,24 +86,24 @@ Configuré automatiquement dans `casc.yaml` via le plugin **Role-based Authoriza
 
 ### Rôles globaux
 
-| Rôle      | Permissions        | Utilisateurs               |
-|-----------|--------------------|----------------------------|
-| `admin`   | Tout faire         | `admin`                    |
-| `employe` | Lecture globale    | `developer`, `developer1`, `tester` |
+| Rôle      | Permissions     | Utilisateurs                        |
+| --------- | --------------- | ----------------------------------- |
+| `admin`   | Tout faire      | `admin`                             |
+| `employe` | Lecture globale | `developer`, `developer1`, `tester` |
 
 ### Rôles par item (projets)
 
-| Rôle             | Pattern regex | Permissions      | Utilisateurs            |
-|------------------|---------------|------------------|-------------------------|
-| `java-developer` | `Java.*`      | Build/Read/…     | `developer`, `developer1` |
-| `tester`         | `Test.*`      | Build/Read/…     | `tester`                |
+| Rôle             | Pattern regex | Permissions  | Utilisateurs              |
+| ---------------- | ------------- | ------------ | ------------------------- |
+| `java-developer` | `Java.*`      | Build/Read/… | `developer`, `developer1` |
+| `tester`         | `Test.*`      | Build/Read/… | `tester`                  |
 
 > Nommer vos projets `Java-...` pour que `developer` puisse y accéder,
 > et `Test-...` pour `tester`.
 
 ### Gérer les rôles manuellement
 
-*Administrer Jenkins → Gérer et assigner les rôles*
+_Administrer Jenkins → Gérer et assigner les rôles_
 
 ---
 
@@ -111,28 +113,28 @@ Job **`Calculatrice-Pipeline`** créé automatiquement au démarrage.
 
 ### Stages
 
-| Stage              | Commande Maven                          |
-|--------------------|-----------------------------------------|
-| Compilation        | `mvn clean compile`                     |
-| Tests Unitaires    | `mvn test` + rapport JUnit              |
-| Couverture JaCoCo  | `mvn jacoco:report` + rapport HTML      |
-| Package            | `mvn package` + archivage du JAR        |
+| Stage             | Commande Maven                     |
+| ----------------- | ---------------------------------- |
+| Compilation       | `mvn clean compile`                |
+| Tests Unitaires   | `mvn test` + rapport JUnit         |
+| Couverture JaCoCo | `mvn jacoco:report` + rapport HTML |
+| Package           | `mvn package` + archivage du JAR   |
 
 ### Build avec paramètres
 
 Le `Jenkinsfile` expose deux paramètres :
 
-| Paramètre    | Type   | Défaut  | Valeurs possibles     |
-|--------------|--------|---------|-----------------------|
-| `plateforme` | String | `Linux` | Texte libre           |
-| `choix`      | Choice | `Linux` | Linux, Windows, Mac   |
+| Paramètre    | Type   | Défaut  | Valeurs possibles   |
+| ------------ | ------ | ------- | ------------------- |
+| `plateforme` | String | `Linux` | Texte libre         |
+| `choix`      | Choice | `Linux` | Linux, Windows, Mac |
 
-*Lancer un build avec des paramètres* → renseigner les valeurs → *Build*
+_Lancer un build avec des paramètres_ → renseigner les valeurs → _Build_
 
 ### Notifications email
 
 En cas de build **instable** ou en **échec**, un email est envoyé à `admin@jenkins.local`.
-Configurer le serveur SMTP dans *Administrer Jenkins → Configurer le système*.
+Configurer le serveur SMTP dans _Administrer Jenkins → Configurer le système_.
 
 ---
 
@@ -152,15 +154,17 @@ docker-compose down -v
 
 ## Correspondance avec le TP PDF
 
-| TP PDF                              | Implémentation Docker                         |
-|-------------------------------------|-----------------------------------------------|
-| Télécharger `jenkins.war`           | Image `jenkins/jenkins:lts-jdk17`             |
-| `java -jar jenkins.war`             | `docker-compose up --build`                   |
-| Installer plugins manuellement      | `plugins.txt` + `jenkins-plugin-cli`          |
-| Configurer JDK & Maven via UI       | `casc.yaml` (automatique)                     |
-| Créer job HelloWorld freestyle      | Job-DSL dans `casc.yaml` (auto-créé)          |
-| Déclencher à distance (token 1010)  | `authToken` configuré dans le job             |
-| Créer utilisateurs + rôles          | `casc.yaml` — role-strategy plugin            |
-| Pipeline avec stages                | `casc.yaml` + `Jenkinsfile`                   |
-| Build avec paramètres               | `parameters { }` dans le Jenkinsfile          |
-| Notification email                  | `mail()` dans le bloc `post`                  |
+| TP PDF                             | Implémentation Docker                |
+| ---------------------------------- | ------------------------------------ |
+| Télécharger `jenkins.war`          | Image `jenkins/jenkins:lts-jdk17`    |
+| `java -jar jenkins.war`            | `docker-compose up --build`          |
+| Installer plugins manuellement     | `plugins.txt` + `jenkins-plugin-cli` |
+| Configurer JDK & Maven via UI      | `casc.yaml` (automatique)            |
+| Créer job HelloWorld freestyle     | Job-DSL dans `casc.yaml` (auto-créé) |
+| Déclencher à distance (token 1010) | `authToken` configuré dans le job    |
+| Créer utilisateurs + rôles         | `casc.yaml` — role-strategy plugin   |
+| Pipeline avec stages               | `casc.yaml` + `Jenkinsfile`          |
+| Build avec paramètres              | `parameters { }` dans le Jenkinsfile |
+| Notification email                 | `mail()` dans le bloc `post`         |
+
+## Thank you
